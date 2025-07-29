@@ -1,6 +1,4 @@
 import os
-import threading
-from http.server import HTTPServer, SimpleHTTPRequestHandler
 from telegram.ext import Application, CommandHandler
 from market_analysis import MarketAnalyzer
 from wallet_manager import WalletManager
@@ -50,17 +48,6 @@ async def signal(update, context):
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("signal", signal))
 
-# تابع برای اجرای سرور HTTP ساده (برای راضی کردن Render)
-def run_server():
-    server_address = ('', 10000)
-    httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
-    httpd.serve_forever()
-
-# اجرای سرور در یک ترد جداگانه
-server_thread = threading.Thread(target=run_server)
-server_thread.daemon = True
-server_thread.start()
-
 # اجرای بات
 print("بات در حال اجرا است...")
-application.run_polling(allowed_updates=[])  # اضافه کردن allowed_updates برای پایداری
+application.run_polling(allowed_updates=[])
