@@ -29,22 +29,22 @@ if not all([TELEGRAM_TOKEN, TELEGRAM_USER_ID, WEB3_PROVIDER, WALLET_ADDRESS, PRI
 application = Application.builder().token(TELEGRAM_TOKEN).build()
 
 # تعریف دستورات
-def start(update, context):
+async def start(update, context):
     if str(update.effective_user.id) == TELEGRAM_USER_ID:
-        update.message.reply_text("بات فعال شد! از /signal برای تحلیل استفاده کنید.")
+        await update.message.reply_text("بات فعال شد! از /signal برای تحلیل استفاده کنید.")
     else:
-        update.message.reply_text("شما دسترسی ندارید!")
+        await update.message.reply_text("شما دسترسی ندارید!")
 
-def signal(update, context):
+async def signal(update, context):
     if str(update.effective_user.id) == TELEGRAM_USER_ID:
         # فراخوانی MarketAnalyzer با توکن نمونه
         analyzer = MarketAnalyzer()
         market_data = analyzer.analyze_token("bitcoin", "0x1234...")  # جایگزین با آدرس واقعی
         wallet = WalletManager(WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY)
         signal_mgr = SignalManager(market_data, wallet)
-        update.message.reply_text(signal_mgr.generate_signal())
+        await update.message.reply_text(signal_mgr.generate_signal())
     else:
-        update.message.reply_text("شما دسترسی ندارید!")
+        await update.message.reply_text("شما دسترسی ندارید!")
 
 # اضافه کردن هندلرها
 application.add_handler(CommandHandler("start", start))
@@ -63,4 +63,4 @@ server_thread.start()
 
 # اجرای بات
 print("بات در حال اجرا است...")
-application.run_polling()
+application.run_polling(allowed_updates=[])  # اضافه کردن allowed_updates برای پایداری
