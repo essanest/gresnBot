@@ -2,7 +2,6 @@ import os
 import threading
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from telegram.ext import Application, CommandHandler
-from config import TELEGRAM_TOKEN, TELEGRAM_USER_ID
 from market_analysis import analyze_market
 from wallet_manager import WalletManager
 from signal_manager import SignalManager
@@ -10,6 +9,14 @@ from dotenv import load_dotenv
 
 # بارگذاری متغیرهای محیطی
 load_dotenv()
+
+# دریافت متغیرهای محیطی
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_USER_ID = os.getenv("TELEGRAM_USER_ID")
+WEB3_PROVIDER = os.getenv("WEB3_PROVIDER")
+WALLET_ADDRESS = os.getenv("WALLET_ADDRESS")
+PRIVATE_KEY = os.getenv("PRIVATE_KEY")
+ARBISCAN_API_KEY = os.getenv("ARBISCAN_API_KEY")
 
 # تنظیمات بات
 application = Application.builder().token(TELEGRAM_TOKEN).build()
