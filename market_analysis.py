@@ -18,21 +18,24 @@ class MarketAnalyzer:
         """دریافت داده‌های بازار از CoinGecko"""
         url = f"{self.COINGECKO_API}/coins/{token_id}/market_chart?vs_currency=usd&days=1"
         try:
-            response = requests.get(url, timeout=10)  # اضافه کردن timeout
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
+            # تبدیل داده‌ها به DataFrame
             prices = pd.DataFrame(data["prices"], columns=["timestamp", "price"])
             volumes = pd.DataFrame(data["total_volumes"], columns=["timestamp", "volume"])
-            # تکمیل DataFrame برای ta
+            # تنظیم ستون‌های موردنیاز برای تحلیل تکنیکال
             prices["high"] = prices["price"]
             prices["low"] = prices["price"]
             prices["open"] = prices["price"].shift(1).fillna(prices["price"])
             prices["close"] = prices["price"]
-            # هم‌ترازی با حجم
-            if len(prices) > len(volumes):
-                prices = prices.iloc[:len(volumes)]
-            elif len(volumes) > len(prices):
-                volumes = volumes.iloc[:len(prices)]
+            # هم‌ترازی ایندکس‌ها برای جلوگیری از خطا
+            min_length = min(len(prices), len(volumes))
+            prices = prices.iloc[:min_length].reset_index(drop=True)
+            volumes = volumes.iloc[:min_length].reset_index(drop=True)
+            # اطمینان از وجود ستون‌ها
+            if not all(col in prices.columns for col in ["open", "high", "low", "close"]):
+                raise ValueError("DataFrame lacks required columns for TA analysis")
             return prices, volumes
         except requests.RequestException as e:
             print(f"خطا در دریافت داده از CoinGecko: {e}")
@@ -72,16 +75,20 @@ class MarketAnalyzer:
         if prices.empty or volumes.empty:
             return {"token": token_id, "score": 0, "price": 0, "exit_points": []}
 
-        # افزودن ویژگی‌های تکنیکال
-        prices = add_all_ta_features(
-            prices,
-            open="open",
-            high="high",
-            low="low",
-            close="close",
-            volume=volumes["volume"].values,
-            fillna=True
-        )
+        # افزودن ویژگی‌های تکنیکال با تنظیم دقیق DataFrame
+        try:
+            prices = add_all_ta_features(
+                prices,
+                open="open",
+                high="high",
+                low="low",
+                close="close",
+                volume=volumes["volume"].values,
+                fillna=True
+            )
+        except KeyError as e:
+            print(f"KeyError in add_all_ta_features: {e}")
+            prices["trend_macd"] = 0  # مقدار پیش‌فرض برای ادامه
 
         dexscreener_data = self.get_dexscreener_data(token_address)
         volume_score = 20 if dexscreener_data["volume"] > 1e6 else 0
@@ -98,6 +105,6 @@ class MarketAnalyzer:
         return {
             "token": token_id,
             "score": min(score, 100),
-            "price": prices["price"].iloc[-1],
-            "exit_points": [prices["price"].iloc[-1] * 1.1, prices["price"].iloc[-1] * 0.9]
+            "price": prices["price"].iloc[-1] if not prices.empty else 0,
+            "exit_points": [prices["price"].iloc[-1] * 1.1, prices["price"].iloc[-1] * 0.9] if not prices.empty else []
         }
