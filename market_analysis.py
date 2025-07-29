@@ -1,7 +1,17 @@
+import os
 import requests
 import pandas as pd
 from ta import add_all_ta_features
-from config import COINGECKO_API, DEXSCREENER_API, ARBISCAN_API, ARBISCAN_API_KEY
+from dotenv import load_dotenv
+
+# بارگذاری متغیرهای محیطی
+load_dotenv()
+
+# دریافت متغیرهای محیطی
+COINGECKO_API = os.getenv("COINGECKO_API")
+DEXSCREENER_API = os.getenv("DEXSCREENER_API")
+ARBISCAN_API = os.getenv("ARBISCAN_API")
+ARBISCAN_API_KEY = os.getenv("ARBISCAN_API_KEY")
 
 def get_market_data(token_id="bitcoin"):
     """دریافت داده‌های بازار از CoinGecko"""
@@ -24,9 +34,8 @@ def get_dexscreener_data(token_address):
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
-        # فرض می‌کنیم داده‌های حجم و نقدینگی در پاسخ موجود است
-        volume = data.get("volume", {}).get("h24", 0)  # حجم معاملات 24 ساعته
-        liquidity = data.get("liquidity", {}).get("usd", 0)  # نقدینگی به دلار
+        volume = data.get("volume", {}).get("h24", 0)
+        liquidity = data.get("liquidity", {}).get("usd", 0)
         return {"volume": volume, "liquidity": liquidity}
     except requests.RequestException as e:
         print(f"خطا در دریافت داده از DexScreener: {e}")
@@ -40,7 +49,6 @@ def get_whale_transactions(token_address):
         response.raise_for_status()
         data = response.json()
         transactions = data.get("result", [])
-        # فیلتر تراکنش‌های بزرگ (مثلاً بالای 1e18 wei یا معادل 1 واحد توکن)
         whale_txs = [tx for tx in transactions if float(tx.get("value", 0)) > 1e18]
         return whale_txs
     except requests.RequestException as e:
@@ -49,32 +57,27 @@ def get_whale_transactions(token_address):
 
 def analyze_token(token_id, token_address):
     """تحلیل توکن با ترکیب داده‌های CoinGecko، DexScreener و Arbiscan"""
-    # دریافت داده‌های بازار
     prices, volumes = get_market_data(token_id)
     if prices.empty or volumes.empty:
         return {"token": token_id, "score": 0, "price": 0, "exit_points": []}
 
-    # افزودن شاخص‌های تکنیکال
     prices = add_all_ta_features(prices, open="price", high="price", low="price", close="price", volume=volumes["volume"])
 
-    # دریافت داده‌های DexScreener
     dexscreener_data = get_dexscreener_data(token_address)
-    volume_score = 20 if dexscreener_data["volume"] > 1e6 else 0  # امتیاز برای حجم بالا
-    liquidity_score = 20 if dexscreener_data["liquidity"] > 1e6 else 0  # امتیاز برای نقدینگی بالا
+    volume_score = 20 if dexscreener_data["volume"] > 1e6 else 0
+    liquidity_score = 20 if dexscreener_data["liquidity"] > 1e6 else 0
 
-    # دریافت تراکنش‌های نهنگ‌ها از Arbiscan
     whale_txs = get_whale_transactions(token_address)
-    whale_score = len(whale_txs) * 5  # هر تراکنش بزرگ 5 امتیاز
+    whale_score = len(whale_txs) * 5
 
-    # امتیازدهی کلی
-    score = 30  # امتیاز پایه
-    if prices["trend_macd"].iloc[-1] > 0:  # سیگنال صعودی MACD
+    score = 30
+    if prices["trend_macd"].iloc[-1] > 0:
         score += 20
-    score += volume_score + liquidity_score + min(whale_score, 30)  # محدود کردن امتیاز نهنگ‌ها
+    score += volume_score + liquidity_score + min(whale_score, 30)
 
     return {
         "token": token_id,
         "score": min(score, 100),
         "price": prices["price"].iloc[-1],
-        "exit_points": [prices["price"].iloc[-1] * 1.1, prices["price"].iloc[-1] * 0.9]  # 10% سود/زیان
+        "exit_points": [prices["price"].iloc[-1] * 1.1, prices["price"].iloc[-1] * 0.9]
     }
