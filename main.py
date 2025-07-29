@@ -37,7 +37,7 @@ async def signal(update, context):
     if str(update.effective_user.id) == TELEGRAM_USER_ID:
         # فراخوانی MarketAnalyzer با توکن نمونه
         analyzer = MarketAnalyzer()
-        market_data = analyzer.analyze_token("bitcoin", "0x1234...")  # جایگزین با آدرس واقعی
+        market_data = analyzer.analyze_token("bitcoin", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
         wallet = WalletManager(WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY)
         signal_mgr = SignalManager(market_data, wallet)
         await update.message.reply_text(signal_mgr.generate_signal())
