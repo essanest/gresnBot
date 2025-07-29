@@ -15,8 +15,9 @@ RUN apt-get update && apt-get install -y \
 # تنظیمات پروژه
 WORKDIR /app
 COPY . .
-
-# نصب وابستگی‌ها با بهینه‌سازی برای جلوگیری از کمبود حافظه
 RUN pip install --no-cache-dir -r requirements.txt --no-build-isolation
+
+# مشخص کردن پورت برای Render
+EXPOSE 10000
 
 CMD ["python", "main.py"]
