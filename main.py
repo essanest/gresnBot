@@ -71,11 +71,11 @@ async def set_webhook():
     await application.bot.set_webhook(url=WEBHOOK_URL)
     print("Webhook set successfully!")
 
-# پردازش درخواست‌های وب
+# پردازش درخواست‌های وب (async version)
 @app.route('/webhook', methods=['POST'])
-def webhook():
+async def webhook():
     update = Update.de_json(request.get_json(), application.bot)
-    application.process_update(update)
+    await application.process_update(update)
     return 'OK', 200
 
 # route ساده برای تست
