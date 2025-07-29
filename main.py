@@ -31,6 +31,7 @@ app = Flask(__name__)
 
 # تنظیمات بات
 application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+application.initialize()  # اضافه کردن مقداردهی اولیه
 
 # تعریف دستورات
 async def start(update: Update, context):
@@ -71,7 +72,7 @@ async def set_webhook():
     await application.bot.set_webhook(url=WEBHOOK_URL)
     print("Webhook set successfully!")
 
-# پردازش درخواست‌های وب (async version)
+# پردازش درخواست‌های وب
 @app.route('/webhook', methods=['POST'])
 async def webhook():
     update = Update.de_json(request.get_json(), application.bot)
