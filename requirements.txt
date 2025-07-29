@@ -5,4 +5,4 @@ pandas==2.0.3
 numpy==1.23.5
 ta==0.10.2
 web3==6.13.0
-flask==3.0.3
+flask[async]==3.0.3  # تغییر از flask به flask[async]
