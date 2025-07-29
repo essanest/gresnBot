@@ -23,6 +23,11 @@ class MarketAnalyzer:
             data = response.json()
             prices = pd.DataFrame(data["prices"], columns=["timestamp", "price"])
             volumes = pd.DataFrame(data["total_volumes"], columns=["timestamp", "volume"])
+            # تکمیل DataFrame برای ta
+            prices["high"] = prices["price"]
+            prices["low"] = prices["price"]
+            prices["open"] = prices["price"].shift(1).fillna(prices["price"])
+            prices["close"] = prices["price"]
             return prices, volumes
         except requests.RequestException as e:
             print(f"خطا در دریافت داده از CoinGecko: {e}")
@@ -62,7 +67,20 @@ class MarketAnalyzer:
         if prices.empty or volumes.empty:
             return {"token": token_id, "score": 0, "price": 0, "exit_points": []}
 
-        prices = add_all_ta_features(prices, open="price", high="price", low="price", close="price", volume=volumes["volume"])
+        # اطمینان از هم‌ترازی ایندکس‌ها
+        prices = prices.iloc[:len(volumes)]
+        volumes = volumes.iloc[:len(prices)]
+
+        # افزودن ویژگی‌های تکنیکال
+        prices = add_all_ta_features(
+            prices,
+            open="open",
+            high="high",
+            low="low",
+            close="close",
+            volume=volumes["volume"].values,
+            fillna=True
+        )
 
         dexscreener_data = self.get_dexscreener_data(token_address)
         volume_score = 20 if dexscreener_data["volume"] > 1e6 else 0
