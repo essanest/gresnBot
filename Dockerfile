@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.10
 
 # نصب ابزارهای لازم برای کامپایل و کتابخانه‌های موردنیاز pandas
 RUN apt-get update && apt-get install -y \
@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
 # تنظیمات پروژه
 WORKDIR /app
 COPY . .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# نصب وابستگی‌ها با بهینه‌سازی برای جلوگیری از کمبود حافظه
+RUN pip install --no-cache-dir -r requirements.txt --no-build-isolation
 
 CMD ["python", "main.py"]
