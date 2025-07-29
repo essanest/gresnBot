@@ -18,7 +18,7 @@ class MarketAnalyzer:
         """دریافت داده‌های بازار از CoinGecko"""
         url = f"{self.COINGECKO_API}/coins/{token_id}/market_chart?vs_currency=usd&days=1"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)  # اضافه کردن timeout
             response.raise_for_status()
             data = response.json()
             prices = pd.DataFrame(data["prices"], columns=["timestamp", "price"])
@@ -28,16 +28,21 @@ class MarketAnalyzer:
             prices["low"] = prices["price"]
             prices["open"] = prices["price"].shift(1).fillna(prices["price"])
             prices["close"] = prices["price"]
+            # هم‌ترازی با حجم
+            if len(prices) > len(volumes):
+                prices = prices.iloc[:len(volumes)]
+            elif len(volumes) > len(prices):
+                volumes = volumes.iloc[:len(prices)]
             return prices, volumes
         except requests.RequestException as e:
             print(f"خطا در دریافت داده از CoinGecko: {e}")
-            return pd.DataFrame(), pd.DataFrame()
+            return pd.DataFrame(columns=["timestamp", "price", "high", "low", "open", "close"]), pd.DataFrame(columns=["timestamp", "volume"])
 
     def get_dexscreener_data(self, token_address):
         """دریافت داده‌های توکن از DexScreener"""
         url = f"{self.DEXSCREENER_API}/tokens/{token_address}"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
             volume = data.get("volume", {}).get("h24", 0)
@@ -51,7 +56,7 @@ class MarketAnalyzer:
         """دریافت تراکنش‌های نهنگ‌ها از Arbiscan"""
         url = f"{self.ARBISCAN_API}?module=account&action=tokentx&contractaddress={token_address}&sort=desc&apikey={self.ARBISCAN_API_KEY}"
         try:
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
             transactions = data.get("result", [])
@@ -66,10 +71,6 @@ class MarketAnalyzer:
         prices, volumes = self.get_market_data(token_id)
         if prices.empty or volumes.empty:
             return {"token": token_id, "score": 0, "price": 0, "exit_points": []}
-
-        # اطمینان از هم‌ترازی ایندکس‌ها
-        prices = prices.iloc[:len(volumes)]
-        volumes = volumes.iloc[:len(prices)]
 
         # افزودن ویژگی‌های تکنیکال
         prices = add_all_ta_features(
