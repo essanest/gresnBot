@@ -20,7 +20,7 @@ ARBISCAN_API_KEY = os.getenv("ARBISCAN_API_KEY")
 COINGECKO_API = os.getenv("COINGECKO_API")
 DEXSCREENER_API = os.getenv("DEXSCREENER_API")
 ARBISCAN_API = os.getenv("ARBISCAN_API")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # باید تو .env تنظیم بشه (مثلاً https://your-render-url.onrender.com)
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")
 
 # بررسی وجود متغیرها
 if not all([TELEGRAM_TOKEN, TELEGRAM_USER_ID, WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY, ARBISCAN_API_KEY, COINGECKO_API, DEXSCREENER_API, ARBISCAN_API, WEBHOOK_URL]):
@@ -71,15 +71,14 @@ async def set_webhook():
     await application.bot.set_webhook(url=WEBHOOK_URL)
     print("Webhook set successfully!")
 
-# پردازش درخواست‌های وب
-@app.route('/webhook', methods=['POST'])
-async def webhook():
+# پردازش درخواست‌های وب (sync version)
+def webhook():
     update = Update.de_json(request.get_json(), application.bot)
-    await application.process_update(update)
-    return 'OK'
+    application.process_update(update)
+    return 'OK', 200
 
 # اجرای برنامه
 if __name__ == '__main__':
     import asyncio
     asyncio.run(set_webhook())
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
