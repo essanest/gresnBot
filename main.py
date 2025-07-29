@@ -1,5 +1,5 @@
 import os
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from market_analysis import MarketAnalyzer
 from wallet_manager import WalletManager
 from signal_manager import SignalManager
@@ -29,24 +29,37 @@ application = Application.builder().token(TELEGRAM_TOKEN).build()
 # تعریف دستورات
 async def start(update, context):
     if str(update.effective_user.id) == TELEGRAM_USER_ID:
-        await update.message.reply_text("بات فعال شد! از /signal برای تحلیل استفاده کنید.")
+        await update.message.reply_text("بات تریدر هوشمند فعال شد! از /signal برای سیگنال استفاده کنید یا سوال بپرسید.")
     else:
         await update.message.reply_text("شما دسترسی ندارید!")
 
 async def signal(update, context):
     if str(update.effective_user.id) == TELEGRAM_USER_ID:
-        # فراخوانی MarketAnalyzer با توکن نمونه
         analyzer = MarketAnalyzer()
-        market_data = analyzer.analyze_token("bitcoin", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+        # استفاده از آدرس واقعی توکن (مثال: USDC در Arbitrum)
+        market_data = analyzer.analyze_token("usd-coin", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
         wallet = WalletManager(WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY)
         signal_mgr = SignalManager(market_data, wallet)
         await update.message.reply_text(signal_mgr.generate_signal())
     else:
         await update.message.reply_text("شما دسترسی ندارید!")
 
+async def handle_message(update, context):
+    if str(update.effective_user.id) == TELEGRAM_USER_ID:
+        message_text = update.message.text.lower()
+        if "قیمت" in message_text:
+            analyzer = MarketAnalyzer()
+            market_data = analyzer.analyze_token("usd-coin", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
+            await update.message.reply_text(f"قیمت فعلی USDC: {market_data['price']}")
+        else:
+            await update.message.reply_text(f"پیام شما: {update.message.text}. برای سیگنال /signal رو امتحان کن!")
+    else:
+        await update.message.reply_text("شما دسترسی ندارید!")
+
 # اضافه کردن هندلرها
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("signal", signal))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 # اجرای بات
 print("بات در حال اجرا است...")
