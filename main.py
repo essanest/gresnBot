@@ -71,15 +71,20 @@ async def set_webhook():
     await application.bot.set_webhook(url=WEBHOOK_URL)
     print("Webhook set successfully!")
 
-# پردازش درخواست‌های وب (با route صریح)
+# پردازش درخواست‌های وب
 @app.route('/webhook', methods=['POST'])
 def webhook():
     update = Update.de_json(request.get_json(), application.bot)
     application.process_update(update)
     return 'OK', 200
 
+# route ساده برای تست
+@app.route('/', methods=['GET'])
+def health_check():
+    return 'Service is running', 200
+
 # اجرای برنامه
 if __name__ == '__main__':
     import asyncio
     asyncio.run(set_webhook())
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))  # پورت رو به 10000 تغییر دادم
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
