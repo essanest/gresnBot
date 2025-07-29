@@ -1,77 +1,50 @@
-import telegram
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from signal_manager import send_signal
-from wallet_manager import execute_trade
-from config import TELEGRAM_TOKEN, ALLOWED_USER_IDS
+import os
+import threading
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from telegram.ext import Application, CommandHandler
+from config import TELEGRAM_TOKEN, TELEGRAM_USER_ID
+from market_analysis import analyze_market
+from wallet_manager import WalletManager
+from signal_manager import SignalManager
+from dotenv import load_dotenv
 
+# بارگذاری متغیرهای محیطی
+load_dotenv()
+
+# تنظیمات بات
+application = Application.builder().token(TELEGRAM_TOKEN).build()
+
+# تعریف دستورات
 def start(update, context):
-    if update.message.from_user.id not in ALLOWED_USER_IDS:
-        update.message.reply_text("دسترسی غیرمجاز!")
-        return
-    update.message.reply_text("به essanbot خوش آمدید! دستورات: /signal, /buy, /sell, /mode")
-
-def set_mode(update, context):
-    if update.message.from_user.id not in ALLOWED_USER_IDS:
-        return
-    mode = context.args[0] if context.args else None
-    if mode in ["manual", "auto"]:
-        context.user_data["mode"] = mode
-        update.message.reply_text(f"حالت به {mode} تغییر کرد.")
+    if str(update.effective_user.id) == TELEGRAM_USER_ID:
+        update.message.reply_text("بات فعال شد! از /signal برای تحلیل استفاده کنید.")
     else:
-        update.message.reply_text("لطفاً حالت valid (manual/auto) را وارد کنید.")
+        update.message.reply_text("شما دسترسی ندارید!")
 
 def signal(update, context):
-    if update.message.from_user.id not in ALLOWED_USER_IDS:
-        return
-    signal_data = send_signal()
-    update.message.reply_text(
-        f"سیگنال: {signal_data['token']}\n"
-        f"امتیاز: {signal_data['score']}\n"
-        f"اقدام: {signal_data['action']}\n"
-        f"قیمت فعلی: {signal_data['price']}\n"
-        f"نقاط خروج: {signal_data['exit_points']}"
-    )
-
-def buy(update, context):
-    if update.message.from_user.id not in ALLOWED_USER_IDS:
-        return
-    if context.user_data.get("mode") == "manual":
-        amount = float(context.args[0]) if context.args else 0
-        token = context.args[1] if len(context.args) > 1 else None
-        if amount > 0 and token:
-            result = execute_trade(token, amount, "buy")
-            update.message.reply_text(f"خرید انجام شد: {result}")
-        else:
-            update.message.reply_text("لطفاً مقدار سرمایه و توکن را مشخص کنید.")
+    if str(update.effective_user.id) == TELEGRAM_USER_ID:
+        market_data = analyze_market()
+        wallet = WalletManager()
+        signal = SignalManager(market_data, wallet)
+        update.message.reply_text(signal.generate_signal())
     else:
-        update.message.reply_text("حالت دستی فعال نیست!")
+        update.message.reply_text("شما دسترسی ندارید!")
 
-def sell(update, context):
-    if update.message.from_user.id not in ALLOWED_USER_IDS:
-        return
-    if context.user_data.get("mode") == "manual":
-        amount = float(context.args[0]) if context.args else 0
-        token = context.args[1] if len(context.args) > 1 else None
-        if amount > 0 and token:
-            result = execute_trade(token, amount, "sell")
-            update.message.reply_text(f"فروش انجام شد: {result}")
-        else:
-            update.message.reply_text("لطفاً مقدار توکن و توکن را مشخص کنید.")
-    else:
-        update.message.reply_text("حالت دستی فعال نیست!")
+# اضافه کردن هندلرها
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("signal", signal))
 
-def main():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
+# تابع برای اجرای سرور HTTP ساده (برای راضی کردن Render)
+def run_server():
+    server_address = ('', 10000)
+    httpd = HTTPServer(server_address, SimpleHTTPRequestHandler)
+    httpd.serve_forever()
 
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("mode", set_mode))
-    dp.add_handler(CommandHandler("signal", signal))
-    dp.add_handler(CommandHandler("buy", buy))
-    dp.add_handler(CommandHandler("sell", sell))
+# اجرای سرور در یک ترد جداگانه
+server_thread = threading.Thread(target=run_server)
+server_thread.daemon = True
+server_thread.start()
 
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == "__main__":
-    main()
+# اجرای بات
+print("بات در حال اجرا است...")
+application.run_polling()
