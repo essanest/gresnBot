@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 from ta import add_all_ta_features
 from dotenv import load_dotenv
+import json
 
 # بارگذاری متغیرهای محیطی
 load_dotenv()
@@ -63,7 +64,19 @@ class MarketAnalyzer:
             response.raise_for_status()
             data = response.json()
             transactions = data.get("result", [])
-            whale_txs = [tx for tx in transactions if float(tx.get("value", 0)) > 1e18]
+            whale_txs = []
+            for tx in transactions:
+                try:
+                    # اگه tx یه رشته JSON هست، اون رو به دیکشنری تبدیل کن
+                    if isinstance(tx, str):
+                        tx_data = json.loads(tx)
+                    else:
+                        tx_data = tx
+                    value = float(tx_data.get("value", 0))
+                    if value > 1e18:
+                        whale_txs.append(tx_data)
+                except (json.JSONDecodeError, ValueError):
+                    continue  # نادیده گرفتن داده‌های نامعتبر
             return whale_txs
         except requests.RequestException as e:
             print(f"خطا در دریافت داده از Arbiscan: {e}")
