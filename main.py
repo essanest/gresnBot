@@ -23,7 +23,7 @@ COINGECKO_API = os.getenv("COINGECKO_API")
 DEXSCREENER_API = os.getenv("DEXSCREENER_API")
 ARBISCAN_API = os.getenv("ARBISCAN_API")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-GROK_API_KEY = os.getenv("GROK_API_KEY")  # کلید API که فرستادی
+GROK_API_KEY = os.getenv("GROK_API_KEY")
 
 # بررسی وجود متغیرها
 if not all([TELEGRAM_TOKEN, TELEGRAM_USER_ID, WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY, ARBISCAN_API_KEY, COINGECKO_API, DEXSCREENER_API, ARBISCAN_API, WEBHOOK_URL, GROK_API_KEY]):
@@ -48,10 +48,10 @@ async def set_webhook():
 
 # دریافت پاسخ هوشمند از API xAI
 def get_smart_response(query):
-    url = "https://api.x.ai/v1/chat/completions"  # فرض بر ساختار استاندارد xAI
+    url = "https://api.x.ai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROK_API_KEY}", "Content-Type": "application/json"}
     data = {
-        "model": "grok-3",  # یا مدل دیگه که API پشتیبانی می‌کنه
+        "model": "grok-3",
         "messages": [{"role": "user", "content": query}],
         "max_tokens": 500
     }
@@ -65,14 +65,17 @@ def get_smart_response(query):
 
 # نظارت خودکار بازار
 async def monitor_market_continuously():
-    analyzer = MarketAnalyzer()
-    token_addresses = ["0xaf88d065e77c8cC2239327C5EDb3A432268e5831"]  # لیست اولیه توکن‌ها
     while True:
-        for token in token_addresses:
-            if analyzer.monitor_market(token):
-                market_data = analyzer.analyze_token("usd-coin", token)
-                if market_data["score"] > 80:
-                    await application.bot.send_message(chat_id=TELEGRAM_USER_ID, text=f"سیگنال مطمئن: توکن {token} پتانسیل رشد دارد! قیمت: {market_data['price']}")
+        try:
+            analyzer = MarketAnalyzer()
+            token_addresses = ["0xaf88d065e77c8cC2239327C5EDb3A432268e5831"]
+            for token in token_addresses:
+                if analyzer.monitor_market(token):
+                    market_data = analyzer.analyze_token("usd-coin", token)
+                    if market_data["score"] > 80:
+                        await application.bot.send_message(chat_id=TELEGRAM_USER_ID, text=f"سیگنال مطمئن: توکن {token} پتانسیل رشد دارد! قیمت: {market_data['price']}")
+        except Exception as e:
+            print(f"خطا در نظارت بازار: {e}")
         await asyncio.sleep(300)  # چک هر 5 دقیقه
 
 # تعریف دستورات
@@ -125,9 +128,11 @@ def health_check():
 if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(initialize_app())
-    loop.run_until_complete(set_webhook())
     try:
+        loop.run_until_complete(initialize_app())
+        loop.run_until_complete(set_webhook())
         app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
     except KeyboardInterrupt:
+        loop.close()
+    finally:
         loop.close()
