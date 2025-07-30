@@ -1,4 +1,5 @@
 import os
+import asyncio
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ApplicationBuilder
 from telegram import Update
 from market_analysis import MarketAnalyzer
@@ -6,6 +7,7 @@ from wallet_manager import WalletManager
 from signal_manager import SignalManager
 from dotenv import load_dotenv
 from flask import Flask, request
+import requests
 
 # بارگذاری متغیرهای محیطی
 load_dotenv()
@@ -21,9 +23,10 @@ COINGECKO_API = os.getenv("COINGECKO_API")
 DEXSCREENER_API = os.getenv("DEXSCREENER_API")
 ARBISCAN_API = os.getenv("ARBISCAN_API")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+GROK_API_KEY = os.getenv("GROK_API_KEY")  # نیاز به تنظیم تو .env
 
 # بررسی وجود متغیرها
-if not all([TELEGRAM_TOKEN, TELEGRAM_USER_ID, WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY, ARBISCAN_API_KEY, COINGECKO_API, DEXSCREENER_API, ARBISCAN_API, WEBHOOK_URL]):
+if not all([TELEGRAM_TOKEN, TELEGRAM_USER_ID, WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY, ARBISCAN_API_KEY, COINGECKO_API, DEXSCREENER_API, ARBISCAN_API, WEBHOOK_URL, GROK_API_KEY]):
     raise ValueError("یکی از متغیرهای محیطی ضروری خالی یا تنظیم نشده است!")
 
 # تنظیمات Flask
@@ -36,16 +39,43 @@ application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 async def initialize_app():
     await application.initialize()
     print("Application initialized successfully!")
+    # شروع نظارت خودکار
+    asyncio.create_task(monitor_market_continuously())
 
 # تنظیم Webhook
 async def set_webhook():
     await application.bot.set_webhook(url=WEBHOOK_URL)
     print("Webhook set successfully!")
 
+# دریافت پاسخ هوشمند از Grok
+def get_smart_response(query):
+    url = "https://api.x.ai/v1/chat/completions"  # فرض بر API Grok
+    headers = {"Authorization": f"Bearer {GROK_API_KEY}", "Content-Type": "application/json"}
+    data = {
+        "model": "grok-3",
+        "messages": [{"role": "user", "content": query}],
+        "max_tokens": 500
+    }
+    response = requests.post(url, headers=headers, json=data, timeout=10)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"]
+
+# نظارت خودکار بازار
+async def monitor_market_continuously():
+    analyzer = MarketAnalyzer()
+    token_addresses = ["0xaf88d065e77c8cC2239327C5EDb3A432268e5831"]  # لیست اولیه توکن‌ها
+    while True:
+        for token in token_addresses:
+            if analyzer.monitor_market(token):
+                market_data = analyzer.analyze_token("usd-coin", token)
+                if market_data["score"] > 80:
+                    await application.bot.send_message(chat_id=TELEGRAM_USER_ID, text=f"سیگنال مطمئن: توکن {token} پتانسیل رشد دارد! قیمت: {market_data['price']}")
+        await asyncio.sleep(300)  # چک هر 5 دقیقه
+
 # تعریف دستورات
 async def start(update: Update, context):
     if str(update.effective_user.id) == TELEGRAM_USER_ID:
-        await update.message.reply_text("بات تریدر هوشمند فعال شد! از /signal برای سیگنال استفاده کنید یا سوال بپرسید.")
+        await update.message.reply_text("بات تریدر هوشمند فعال شد! هر سوالی بپرسید یا منتظر سیگنال باشید.")
     else:
         await update.message.reply_text("شما دسترسی ندارید!")
 
@@ -55,19 +85,19 @@ async def signal(update: Update, context):
         market_data = analyzer.analyze_token("usd-coin", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
         wallet = WalletManager(WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY)
         signal_mgr = SignalManager(market_data, wallet)
-        await update.message.reply_text(signal_mgr.generate_signal())
+        signal_text = signal_mgr.generate_signal()
+        if market_data["score"] > 80:
+            await update.message.reply_text(f"سیگنال مطمئن: {signal_text}")
+        else:
+            await update.message.reply_text(f"تحلیل در حال انجام: {signal_text} (امتیاز: {market_data['score']}/100)")
     else:
         await update.message.reply_text("شما دسترسی ندارید!")
 
 async def handle_message(update: Update, context):
     if str(update.effective_user.id) == TELEGRAM_USER_ID:
-        message_text = update.message.text.lower()
-        if "قیمت" in message_text:
-            analyzer = MarketAnalyzer()
-            market_data = analyzer.analyze_token("usd-coin", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831")
-            await update.message.reply_text(f"قیمت فعلی USDC: {market_data['price']}")
-        else:
-            await update.message.reply_text(f"پیام شما: {update.message.text}. برای سیگنال /signal رو امتحان کن!")
+        message_text = update.message.text
+        response = get_smart_response(message_text)
+        await update.message.reply_text(response)
     else:
         await update.message.reply_text("شما دسترسی ندارید!")
 
@@ -90,8 +120,11 @@ def health_check():
 
 # اجرای برنامه
 if __name__ == '__main__':
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(initialize_app())  # مقداردهی اولیه
-    loop.run_until_complete(set_webhook())    # تنظیم Webhook
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(initialize_app())
+    loop.run_until_complete(set_webhook())
+    try:
+        app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
+    except KeyboardInterrupt:
+        loop.close()
