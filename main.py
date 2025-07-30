@@ -35,6 +35,12 @@ application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 # مقداردهی اولیه آسنکرون
 async def initialize_app():
     await application.initialize()
+    print("Application initialized successfully!")
+
+# تنظیم Webhook
+async def set_webhook():
+    await application.bot.set_webhook(url=WEBHOOK_URL)
+    print("Webhook set successfully!")
 
 # تعریف دستورات
 async def start(update: Update, context):
@@ -70,11 +76,6 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("signal", signal))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-# تنظیم Webhook
-async def set_webhook():
-    await application.bot.set_webhook(url=WEBHOOK_URL)
-    print("Webhook set successfully!")
-
 # پردازش درخواست‌های وب
 @app.route('/webhook', methods=['POST'])
 async def webhook():
@@ -90,6 +91,7 @@ def health_check():
 # اجرای برنامه
 if __name__ == '__main__':
     import asyncio
-    asyncio.run(initialize_app())  # مقداردهی اولیه آسنکرون
-    asyncio.run(set_webhook())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(initialize_app())  # مقداردهی اولیه
+    loop.run_until_complete(set_webhook())    # تنظیم Webhook
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
