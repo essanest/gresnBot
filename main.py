@@ -31,7 +31,10 @@ app = Flask(__name__)
 
 # تنظیمات بات
 application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-application.initialize()  # اضافه کردن مقداردهی اولیه
+
+# مقداردهی اولیه آسنکرون
+async def initialize_app():
+    await application.initialize()
 
 # تعریف دستورات
 async def start(update: Update, context):
@@ -87,5 +90,6 @@ def health_check():
 # اجرای برنامه
 if __name__ == '__main__':
     import asyncio
+    asyncio.run(initialize_app())  # مقداردهی اولیه آسنکرون
     asyncio.run(set_webhook())
     app.run(host='0.0.0.0', port=int(os.getenv('PORT', 10000)))
