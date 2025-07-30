@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 import json
 import time
 
-# بارگذاری متغیرهای محیطی
 load_dotenv()
 
 class MarketAnalyzer:
