@@ -51,7 +51,7 @@ class MarketAnalyzer:
             return {"volume": volume, "liquidity": liquidity}
         except requests.RequestException as e:
             print(f"خطا در دریافت داده از DexScreener: {e}")
-            return {"volume": 0, "liquidity": 0"}
+            return {"volume": 0, "liquidity": 0}
 
     def get_whale_transactions(self, token_address):
         """دریافت تراکنش‌های نهنگ‌ها از Arbiscan"""
