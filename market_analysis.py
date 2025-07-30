@@ -51,7 +51,7 @@ class MarketAnalyzer:
             return {"volume": volume, "liquidity": liquidity}
         except requests.RequestException as e:
             print(f"خطا در دریافت داده از DexScreener: {e}")
-            return {"volume": 0, "liquidity": 0}
+            return {"volume": 0, "liquidity": 0"}
 
     def get_whale_transactions(self, token_address):
         """دریافت تراکنش‌های نهنگ‌ها از Arbiscan"""
@@ -64,14 +64,16 @@ class MarketAnalyzer:
             whale_txs = []
             for tx in transactions:
                 try:
-                    if isinstance(tx, str):
+                    if isinstance(tx, dict):
+                        value = float(tx.get("value", 0))
+                    elif isinstance(tx, str):
                         tx_data = json.loads(tx)
+                        value = float(tx_data.get("value", 0))
                     else:
-                        tx_data = tx
-                    value = float(tx_data.get("value", 0))
+                        continue  # نادیده گرفتن داده‌های نامعتبر
                     if value > 1e18:
-                        whale_txs.append(tx_data)
-                except (json.JSONDecodeError, ValueError):
+                        whale_txs.append(tx)
+                except (json.JSONDecodeError, ValueError, TypeError):
                     continue
             return whale_txs
         except requests.RequestException as e:
