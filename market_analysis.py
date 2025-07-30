@@ -4,6 +4,7 @@ import pandas as pd
 from ta import add_all_ta_features
 from dotenv import load_dotenv
 import json
+import time
 
 # بارگذاری متغیرهای محیطی
 load_dotenv()
@@ -22,19 +23,15 @@ class MarketAnalyzer:
             response = requests.get(url, timeout=10)
             response.raise_for_status()
             data = response.json()
-            # تبدیل داده‌ها به DataFrame
             prices = pd.DataFrame(data["prices"], columns=["timestamp", "price"])
             volumes = pd.DataFrame(data["total_volumes"], columns=["timestamp", "volume"])
-            # تنظیم ستون‌های موردنیاز برای تحلیل تکنیکال
             prices["high"] = prices["price"]
             prices["low"] = prices["price"]
             prices["open"] = prices["price"].shift(1).fillna(prices["price"])
             prices["close"] = prices["price"]
-            # هم‌ترازی ایندکس‌ها برای جلوگیری از خطا
             min_length = min(len(prices), len(volumes))
             prices = prices.iloc[:min_length].reset_index(drop=True)
             volumes = volumes.iloc[:min_length].reset_index(drop=True)
-            # اطمینان از وجود ستون‌ها
             if not all(col in prices.columns for col in ["open", "high", "low", "close"]):
                 raise ValueError("DataFrame lacks required columns for TA analysis")
             return prices, volumes
@@ -67,7 +64,6 @@ class MarketAnalyzer:
             whale_txs = []
             for tx in transactions:
                 try:
-                    # اگه tx یه رشته JSON هست، اون رو به دیکشنری تبدیل کن
                     if isinstance(tx, str):
                         tx_data = json.loads(tx)
                     else:
@@ -76,11 +72,21 @@ class MarketAnalyzer:
                     if value > 1e18:
                         whale_txs.append(tx_data)
                 except (json.JSONDecodeError, ValueError):
-                    continue  # نادیده گرفتن داده‌های نامعتبر
+                    continue
             return whale_txs
         except requests.RequestException as e:
             print(f"خطا در دریافت داده از Arbiscan: {e}")
             return []
+
+    def monitor_market(self, token_address):
+        """نظارت لحظه‌ای بر بازار برای شناسایی پتانسیل رشد"""
+        dexscreener_data = self.get_dexscreener_data(token_address)
+        volume = dexscreener_data["volume"]
+        liquidity = dexscreener_data["liquidity"]
+        whale_txs = self.get_whale_transactions(token_address)
+        if volume > 1e6 and liquidity > 1e6 and len(whale_txs) > 5:
+            return True
+        return False
 
     def analyze_token(self, token_id, token_address):
         """تحلیل توکن با ترکیب داده‌های CoinGecko، DexScreener و Arbiscan"""
@@ -88,7 +94,6 @@ class MarketAnalyzer:
         if prices.empty or volumes.empty:
             return {"token": token_id, "score": 0, "price": 0, "exit_points": []}
 
-        # افزودن ویژگی‌های تکنیکال با تنظیم دقیق DataFrame
         try:
             prices = add_all_ta_features(
                 prices,
@@ -101,19 +106,19 @@ class MarketAnalyzer:
             )
         except KeyError as e:
             print(f"KeyError in add_all_ta_features: {e}")
-            prices["trend_macd"] = 0  # مقدار پیش‌فرض برای ادامه
+            prices["trend_macd"] = 0
 
         dexscreener_data = self.get_dexscreener_data(token_address)
         volume_score = 20 if dexscreener_data["volume"] > 1e6 else 0
         liquidity_score = 20 if dexscreener_data["liquidity"] > 1e6 else 0
 
         whale_txs = self.get_whale_transactions(token_address)
-        whale_score = len(whale_txs) * 5
+        whale_score = min(len(whale_txs) * 5, 30)
 
         score = 30
         if prices["trend_macd"].iloc[-1] > 0:
             score += 20
-        score += volume_score + liquidity_score + min(whale_score, 30)
+        score += volume_score + liquidity_score + whale_score
 
         return {
             "token": token_id,
