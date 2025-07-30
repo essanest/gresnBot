@@ -23,7 +23,7 @@ COINGECKO_API = os.getenv("COINGECKO_API")
 DEXSCREENER_API = os.getenv("DEXSCREENER_API")
 ARBISCAN_API = os.getenv("ARBISCAN_API")
 WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-GROK_API_KEY = os.getenv("GROK_API_KEY")  # نیاز به تنظیم تو .env
+GROK_API_KEY = os.getenv("GROK_API_KEY")
 
 # بررسی وجود متغیرها
 if not all([TELEGRAM_TOKEN, TELEGRAM_USER_ID, WEB3_PROVIDER, WALLET_ADDRESS, PRIVATE_KEY, ARBISCAN_API_KEY, COINGECKO_API, DEXSCREENER_API, ARBISCAN_API, WEBHOOK_URL, GROK_API_KEY]):
@@ -39,7 +39,6 @@ application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 async def initialize_app():
     await application.initialize()
     print("Application initialized successfully!")
-    # شروع نظارت خودکار
     asyncio.create_task(monitor_market_continuously())
 
 # تنظیم Webhook
@@ -49,7 +48,7 @@ async def set_webhook():
 
 # دریافت پاسخ هوشمند از Grok
 def get_smart_response(query):
-    url = "https://api.x.ai/v1/chat/completions"  # فرض بر API Grok
+    url = "https://api.x.ai/v1/chat/completions"
     headers = {"Authorization": f"Bearer {GROK_API_KEY}", "Content-Type": "application/json"}
     data = {
         "model": "grok-3",
@@ -63,14 +62,14 @@ def get_smart_response(query):
 # نظارت خودکار بازار
 async def monitor_market_continuously():
     analyzer = MarketAnalyzer()
-    token_addresses = ["0xaf88d065e77c8cC2239327C5EDb3A432268e5831"]  # لیست اولیه توکن‌ها
+    token_addresses = ["0xaf88d065e77c8cC2239327C5EDb3A432268e5831"]
     while True:
         for token in token_addresses:
             if analyzer.monitor_market(token):
                 market_data = analyzer.analyze_token("usd-coin", token)
                 if market_data["score"] > 80:
                     await application.bot.send_message(chat_id=TELEGRAM_USER_ID, text=f"سیگنال مطمئن: توکن {token} پتانسیل رشد دارد! قیمت: {market_data['price']}")
-        await asyncio.sleep(300)  # چک هر 5 دقیقه
+        await asyncio.sleep(300)
 
 # تعریف دستورات
 async def start(update: Update, context):
