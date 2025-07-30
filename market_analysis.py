@@ -17,7 +17,6 @@ class MarketAnalyzer:
         self.ARBISCAN_API_KEY = os.getenv("ARBISCAN_API_KEY")
 
     def get_market_data(self, token_id="bitcoin"):
-        """دریافت داده‌های بازار از CoinGecko"""
         url = f"{self.COINGECKO_API}/coins/{token_id}/market_chart?vs_currency=usd&days=1"
         try:
             response = requests.get(url, timeout=10)
@@ -40,7 +39,6 @@ class MarketAnalyzer:
             return pd.DataFrame(columns=["timestamp", "price", "high", "low", "open", "close"]), pd.DataFrame(columns=["timestamp", "volume"])
 
     def get_dexscreener_data(self, token_address):
-        """دریافت داده‌های توکن از DexScreener"""
         url = f"{self.DEXSCREENER_API}/tokens/{token_address}"
         try:
             response = requests.get(url, timeout=10)
@@ -54,7 +52,6 @@ class MarketAnalyzer:
             return {"volume": 0, "liquidity": 0"}
 
     def get_whale_transactions(self, token_address):
-        """دریافت تراکنش‌های نهنگ‌ها از Arbiscan"""
         url = f"{self.ARBISCAN_API}?module=account&action=tokentx&contractaddress={token_address}&sort=desc&apikey={self.ARBISCAN_API_KEY}"
         try:
             response = requests.get(url, timeout=10)
@@ -70,7 +67,7 @@ class MarketAnalyzer:
                         tx_data = json.loads(tx)
                         value = float(tx_data.get("value", 0))
                     else:
-                        continue  # نادیده گرفتن داده‌های نامعتبر
+                        continue
                     if value > 1e18:
                         whale_txs.append(tx)
                 except (json.JSONDecodeError, ValueError, TypeError):
@@ -81,7 +78,6 @@ class MarketAnalyzer:
             return []
 
     def monitor_market(self, token_address):
-        """نظارت لحظه‌ای بر بازار برای شناسایی پتانسیل رشد"""
         dexscreener_data = self.get_dexscreener_data(token_address)
         volume = dexscreener_data["volume"]
         liquidity = dexscreener_data["liquidity"]
@@ -91,7 +87,6 @@ class MarketAnalyzer:
         return False
 
     def analyze_token(self, token_id, token_address):
-        """تحلیل توکن با ترکیب داده‌های CoinGecko، DexScreener و Arbiscan"""
         prices, volumes = self.get_market_data(token_id)
         if prices.empty or volumes.empty:
             return {"token": token_id, "score": 0, "price": 0, "exit_points": []}
